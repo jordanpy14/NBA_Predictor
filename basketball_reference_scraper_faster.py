@@ -10,7 +10,7 @@ import random
 
 # Constants
 # focus on 1985 and onward py 
-SEASONS = list(range(2000, 2010))
+SEASONS = list(range(2006, 2015))
 DATA_DIR = "data"
 STANDINGS_DIR = os.path.join(DATA_DIR, "standings")
 SCORES_DIR = os.path.join(DATA_DIR, "scores")
@@ -270,7 +270,7 @@ async def scrape_season(browser, season):
         games = []
         # Scraping games for one month 
         for url_box in tqdm(box_scores, desc=f"Scraping {season_date}"):
-            print("Focused on", url_box)
+            # print("Focused on", url_box)
 
             # save_path_game = os.path.join(SCORES_DIR, f"{season_date}-{os.path.basename(url)}")
 
