@@ -150,20 +150,22 @@ async def get_html(browser, url, selector, sleep=5, retries=3):
     context = await browser.new_context(user_agent=ua)
     page = await context.new_page()
     html = None
-    html = None
     for i in range(1, retries + 1):
         # print(f"Attempt {i} on {url}")
         try:
             await asyncio.sleep(sleep * i)
-            await page.goto(url, timeout=30000)  # 60s timeout
+            await page.goto(url,  timeout=60000)  # 60s timeout
             await page.wait_for_selector(selector, timeout=60000)
             html = await page.inner_html(selector)
             break
         except PlaywrightTimeout:
             print(f"Timeout error on {url} attempt {i}")
             continue
+        except Exception as e:
+            print(f"Error during page operations on {url} attempt {i}: {str(e)}")
         finally:
             await page.close()
+            await context.close() 
     return html
 
 async def get_html_requester(browser, url, selector, sleep=5, retries=3):
