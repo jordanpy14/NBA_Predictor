@@ -10,7 +10,7 @@ import random
 
 # Constants
 # focus on 1985 and onward py 
-SEASONS = list(range(2000, 2023))
+SEASONS = list(range(2000, 2010))
 DATA_DIR = "data"
 STANDINGS_DIR = os.path.join(DATA_DIR, "standings")
 SCORES_DIR = os.path.join(DATA_DIR, "scores")
@@ -139,9 +139,9 @@ def get_team_records(soup):
         record_text = record_div.text.strip()
         results.append((team_name, record_text))
 
-    # Print the results
-    for result in results:
-        print(f"Team: {result[0]}, Record: {result[1]}")
+    # # Print the results
+    # for result in results:
+    #     print(f"Team: {result[0]}, Record: {result[1]}")
         
     return results
 
@@ -296,7 +296,7 @@ async def scrape_season(browser, season):
             # teams = list(line_score["team"])
             teams = get_teams_from_bottom_nav(soup)
             team_record = get_team_records(soup)
-            print("team_record:", "home", team_record[0], "away", team_record[1])
+            # print("team_record:", "home", team_record[0], "away", team_record[1])
             summaries = []
             game_teams = pd.DataFrame({'gameid': [gameid], 'Home': [teams[0]], 'Away': [teams[1]],  'season': [read_season_info(soup)], 'date': [pd.to_datetime(os.path.basename(url_box)[:8], format="%Y%m%d")]})
             summaries.append(game_teams)
@@ -344,7 +344,7 @@ async def scrape_season(browser, season):
             summaries.append(team_record)
     
             summary = pd.concat(summaries, axis=1)
-            summary.to_csv(f"game_{gameid}.csv", index=False)   
+            # summary.to_csv(f"game_{gameid}.csv", index=False)   
             games.append(summary)
 
         all_games = pd.concat(games, ignore_index=True)
