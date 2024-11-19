@@ -244,6 +244,9 @@ def flatten_player_stats(sorted_players, quarter, name):
 async def scrape_season(browser, season):
     url = f"https://www.basketball-reference.com/leagues/NBA_{season}_games.html"
     html = await get_html(browser, url, "#content .filter") 
+    if not html:
+        print(f"Failed to get HTML from {url}")
+        return
     soup = BeautifulSoup(html, 'html.parser')
     links = soup.find_all("a")
     # links for all months in the season
@@ -251,7 +254,7 @@ async def scrape_season(browser, season):
     # print("standing pages", standings_pages)
 
     # Iterating over all months in a season 
-    for i, url in enumerate(tqdm(standings_pages, desc=f"Scraping {season}")):
+    for i, url in enumerate(tqdm(standings_pages[1:], desc=f"Scraping {season}")):
         # if i < 4:
         #     continue
         # print("Focused on", url)
@@ -262,6 +265,9 @@ async def scrape_season(browser, season):
         
         # for all games in the season per month
         html_origin = await get_html(browser, url, "#all_schedule")  
+        if not html_origin:
+            print(f"Failed to get HTML from {url}")
+            continue
         soup = BeautifulSoup(html_origin, 'html.parser')
         season_date = first + "_" + str(i) + "-" + second
         links = soup.find_all("a")
@@ -278,6 +284,8 @@ async def scrape_season(browser, season):
 
             # saving game hmtl
             soup = await get_html(browser, url_box, "#content")  
+            if not soup:
+                continue
             # if soup:
             #     with open(save_path_game, "w+") as f:
             #         f.write(soup)
