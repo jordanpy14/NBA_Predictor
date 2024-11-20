@@ -10,7 +10,7 @@ import random
 
 # Constants
 # focus on 1985 and onward py
-SEASONS = list(range(2021, 2024))
+SEASONS = list(range(2022, 2024))
 DATA_DIR = "data"
 STANDINGS_DIR = os.path.join(DATA_DIR, "standings")
 SCORES_DIR = os.path.join(DATA_DIR, "scores")
@@ -148,6 +148,8 @@ def get_team_records(soup):
     for team_div in team_divs:
         team_name = team_div.find_previous("strong").a.text
         record_div = team_div.find_next_sibling("div")
+        if not record_div:
+            return None
         record_text = record_div.text.strip()
         results.append((team_name, record_text))
 
@@ -335,6 +337,8 @@ async def scrape_season(browser, season):
             # teams = list(line_score["team"])
             teams = get_teams_from_bottom_nav(soup)
             team_record = get_team_records(soup)
+            if not team_record:
+                continue
             # print("team_record:", "home", team_record[0], "away", team_record[1])
             summaries = []
             game_teams = pd.DataFrame(

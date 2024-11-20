@@ -135,7 +135,7 @@ def load_data():
     return X, y
 
 
-# Define the custom MLP model
+# Custom RNN model
 class RNN(tf.keras.Model):
     def __init__(self, timesteps, features):
         super(RNN, self).__init__()
@@ -218,56 +218,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# # Build the model
-# def buildRNN(learning_rate=LR):
-#     model = Sequential()
-#     model.add(LSTM(32, input_shape=(timesteps, features), return_sequences=False))
-#     model.add(Dropout(0.5))
-#     model.add(Dense(1, activation="sigmoid"))
-
-#     # Compile the model
-#     optimizer = Adam(learning_rate=learning_rate)
-#     model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
-
-#     return model
-
-
-# X, y = load_data()
-# # print(X, y)
-
-# # Split the data
-# X_train, X_temp, y_train, y_temp = train_test_split(
-#     X, y, test_size=0.30, random_state=42
-# )
-# X_val, X_test, y_val, y_test = train_test_split(
-#     X_temp, y_temp, test_size=0.50, random_state=42
-# )
-
-# # Normalize the features
-# # scalers = {}
-# # for i in range(X_train.shape[1]):  # Iterate over time steps
-# #     scalers[i] = StandardScaler()
-# #     X_train[:, i, :] = scalers[i].fit_transform(X_train[:, i, :])
-# #     X_val[:, i, :] = scalers[i].transform(X_val[:, i, :])
-# #     X_test[:, i, :] = scalers[i].transform(X_test[:, i, :])
-
-# model = buildRNN(X_train.shape[1], X_train.shape[2], learning_rate=LR)
-
-# # Train the model
-# history = model.fit(
-#     X_train,
-#     y_train,
-#     validation_data=(X_val, y_val),
-#     epochs=EPOCHS,
-#     batch_size=BATCH_SIZE,
-# )
-
-
-# # Evaluate the model
-# test_loss, test_accuracy = model.evaluate(X_test, y_test)
-# print(f"Test Loss: {test_loss}")
-# print(f"Test Accuracy: {test_accuracy}")
-
-# model.save("MLP_model.keras")

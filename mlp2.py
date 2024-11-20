@@ -124,7 +124,7 @@ def load_data():
     return X, y
 
 
-# Define the custom MLP model
+# Custom MLP model
 class MLP(tf.keras.Model):
     def __init__(self, num_features):
         super(MLP, self).__init__()
