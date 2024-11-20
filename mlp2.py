@@ -6,12 +6,6 @@ import glob
 import os
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, LSTM
-from tensorflow.keras.initializers import GlorotUniform  # Xavier initialization
-from tensorflow.keras.optimizers import Adam
-import matplotlib.pyplot as plt
-
 
 # HYPERPARAMETERS
 BATCH_SIZE = 16
@@ -22,7 +16,10 @@ tf.keras.utils.set_random_seed(42)
 
 DATA_DIR = "data/"
 TIME = ["q1", "q2"]
-PLAYERS = ["team", "player1", "player2", "player3", "player4", "player5"]
+PLAYERS = [
+    "team",
+    "player1",
+]
 TEAMS = ["home", "away"]
 PLAYER_BASIC_STATS = [
     "MP_float",
@@ -69,9 +66,9 @@ def extract_features():
                     for tbs in TEAM_BASIC_STATS:
                         features.append(f"{time}_{player}_{team}_{tbs}")
                 # Uncomment the following lines if you want to include player stats
-                # else:
-                #     for pbs in PLAYER_BASIC_STATS:
-                #         features.append(f"{time}_{player}_{team}_{pbs}")
+                else:
+                    for pbs in PLAYER_BASIC_STATS:
+                        features.append(f"{time}_{player}_{team}_{pbs}")
     features.extend(
         ["team_home_wins", "team_home_losses", "team_away_wins", "team_away_losses"]
     )
@@ -127,45 +124,36 @@ def load_data():
     return X, y
 
 
-def plot_graphs(history):
-    plt.plot(history.history["accuracy"])
-    plt.plot(history.history["val_accuracy"])
-    plt.title("model accuracy")
-    plt.ylabel("accuracy")
-    plt.xlabel("epoch")
-    plt.legend(["train", "test"], loc="upper left")
-    plt.show()
-    # summarize history for loss
-    plt.plot(history.history["loss"])
-    plt.plot(history.history["val_loss"])
-    plt.title("model loss")
-    plt.ylabel("loss")
-    plt.xlabel("epoch")
-    plt.legend(["train", "test"], loc="upper left")
-    plt.show()
-
-
 # Define the custom MLP model
 class MLP(tf.keras.Model):
     def __init__(self, num_features):
         super(MLP, self).__init__()
-        self.dense1 = Dense(
-            units=32,
+        self.dense1 = tf.keras.layers.Dense(
+            units=64,
             activation="relu",
+            kernel_initializer=tf.keras.initializers.GlorotUniform(),
             input_shape=(num_features,),
         )
-        self.dense2 = Dense(
+        self.dense2 = tf.keras.layers.Dense(
+            units=32,
+            activation="relu",
+            kernel_initializer=tf.keras.initializers.GlorotUniform(),
+        )
+        self.dense3 = tf.keras.layers.Dense(
             units=16,
             activation="relu",
+            kernel_initializer=tf.keras.initializers.GlorotUniform(),
         )
-        self.dense3 = Dense(
+        self.dense4 = tf.keras.layers.Dense(
             units=16,
             activation="relu",
+            kernel_initializer=tf.keras.initializers.GlorotUniform(),
         )
-        self.dropout = Dropout(0.5)
-        self.output_layer = Dense(
+        self.dropout = tf.keras.layers.Dropout(0.5)
+        self.output_layer = tf.keras.layers.Dense(
             units=1,
             activation="sigmoid",
+            kernel_initializer=tf.keras.initializers.GlorotUniform(),
         )
 
     def call(self, inputs, training=False):
@@ -199,10 +187,11 @@ def main():
 
     # Build the model
     num_features = X_train.shape[1]
+    print(num_features)
     model = MLP(num_features)
 
     # Compile the model
-    optimizer = Adam(learning_rate=LR)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
     model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
 
     # Train the model
@@ -219,7 +208,6 @@ def main():
     print(f"Test Loss: {test_loss}")
     print(f"Test Accuracy: {test_accuracy}")
 
-    plot_graphs(history)
     # Optionally, save the model
     # model.save("MLP_model.keras")
 
