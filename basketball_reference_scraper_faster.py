@@ -9,8 +9,8 @@ from io import StringIO
 import random
 
 # Constants
-# focus on 1985 and onward py
-SEASONS = list(range(2022, 2024))
+# focus on 1985 and onward py 
+SEASONS = list(range(2021, 2022))
 DATA_DIR = "data"
 STANDINGS_DIR = os.path.join(DATA_DIR, "standings")
 SCORES_DIR = os.path.join(DATA_DIR, "scores")
@@ -141,23 +141,25 @@ def get_team_records(soup):
     # Extract both team divs from the scorebox
     team_divs = soup.find_all(
         "div", class_="scores", limit=2
-    )  # Assuming there are always two teams listed as in your HTML structure
+    )  # Check this class name and the assumption about the count
 
     results = []
 
     for team_div in team_divs:
-        team_name = team_div.find_previous("strong").a.text
+        team_name = team_div.find_previous("strong").a.text  # Assuming the structure to find team name is correct
+
+        # Safely attempt to find the next sibling div and extract text
         record_div = team_div.find_next_sibling("div")
-        if not record_div:
-            return None
-        record_text = record_div.text.strip()
+        if record_div:
+            record_text = record_div.text.strip()
+        else:
+            record_text = None # Or some other placeholder indicating an issue
+
         results.append((team_name, record_text))
 
-    # # Print the results
-    # for result in results:
-    #     print(f"Team: {result[0]}, Record: {result[1]}")
-
     return results
+
+    
 
 
 async def get_html(browser, url, selector, sleep=5, retries=3):
@@ -279,10 +281,10 @@ async def scrape_season(browser, season):
     ]
     # print("standing pages", standings_pages)
 
-    # Iterating over all months in a season
-    for i, url in enumerate(tqdm(standings_pages[1:], desc=f"Scraping {season}")):
-        # if i < 4:
-        #     continue
+    # Iterating over all months in a season 
+    for i, url in enumerate(tqdm(standings_pages, desc=f"Scraping {season}")):
+        if 1 <= i <= 3:
+            continue
         # print("Focused on", url)
         first, second = os.path.basename(url).split("-")
         save_path = os.path.join(STANDINGS_DIR, f"{first}_{i}-{second}")
@@ -308,7 +310,8 @@ async def scrape_season(browser, season):
 
         season_date = season_date.split(".")[0]
         games = []
-        # Scraping games for one month
+        # print(f"going to saved to data/{season}/{season_date}_all_games_summary.csv")
+        # Scraping games for one month 
         for url_box in tqdm(box_scores, desc=f"Scraping {season_date}"):
             # print("Focused on", url_box)
 
