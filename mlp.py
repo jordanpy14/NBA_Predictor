@@ -102,10 +102,10 @@ def load_data():
     away_record_split.columns = ["team_away_wins", "team_away_losses"]
     away_record_split = away_record_split.astype(int)
 
-    # Calculate the target variable: 1 if home team wins, 0 otherwise
+    # # Calculate the target variable: 1 if home team wins, 0 otherwise
     y = (df["game_team_home_PTS"] > df["game_team_away_PTS"]).astype(int)
 
-    # Update records based on the game outcome
+    # # Update records based on the game outcome
     home_record_split["team_home_wins"] -= y
     away_record_split["team_away_losses"] -= y
     home_record_split["team_home_losses"] -= 1 - y
@@ -175,7 +175,7 @@ class MLP(tf.keras.Model):
         x = self.dropout(x, training=training)
         x = self.dense3(x)
         x = self.dropout(x, training=training)
-        x = self.output_layer(x)
+        x = self.output_layer(inputs)
         return x
 
 

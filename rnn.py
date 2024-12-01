@@ -40,7 +40,6 @@ PlAYER_BASIC_STATS = [
     "BLK",
     "TOV",
     "PF",
-    "PTS",
     "plus_minus",
 ]
 TEAM_BASIC_STATS = [
@@ -57,7 +56,6 @@ TEAM_BASIC_STATS = [
     "BLK",
     "TOV",
     "PF",
-    "PTS",
 ]
 
 
@@ -82,16 +80,27 @@ def calculate_nba_analytics(df):
     # Determine if the home team won the game
     df["final_win"] = (df["game_team_home_PTS"] > df["game_team_away_PTS"]).astype(int)
 
-    # Calculate the probability of winning the game given winning at halftime
-    # First, filter to only those games where the home team was leading at halftime
-    halftime_leads = df[df["halftime_win"] == 1]
+    print(
+        sum(1 for x, y in zip(df["final_win"], df["halftime_win"]) if x == y)
+        / len(df["final_win"])
+    )
 
-    # Then, find out how often those leads turned into wins
-    probability_win_given_halftime_lead = halftime_leads["final_win"].mean()
-    home_court_win = df["final_win"].mean()
+    # # Calculate the probability of winning the game given winning at halftime
+    # # First, filter to only those games where the home team was leading at halftime
+    # halftime_leads = df[df["halftime_win"] == 1]
 
-    print("Probability win given halftime lead: ", probability_win_given_halftime_lead)
-    print("Probability home team wins: ", home_court_win)
+    # halftime_losses = df[df["halftime_win"] == 0]
+
+    # # Then, find out how often those leads turned into wins
+    # probability_win_given_halftime_lead = halftime_leads["final_win"].mean()
+    # home_court_win = df["final_win"].mean()
+
+    # print(
+    #     "Probability win given halftime lead AWAY: ",
+    #     probability_win_given_halftime_lead,
+    # )
+
+    # print("Probability home team wins: ", 1 - home_court_win)
 
 
 def load_data():

@@ -9,7 +9,7 @@ from io import StringIO
 import random
 
 # Constants
-# focus on 1985 and onward py 
+# focus on 1985 and onward py
 SEASONS = list(range(2021, 2022))
 DATA_DIR = "data"
 STANDINGS_DIR = os.path.join(DATA_DIR, "standings")
@@ -119,21 +119,6 @@ def read_stats_quarter(soup, team, quarter, stat):
     df = pd.read_html(
         StringIO(str(soup)), attrs={"id": f"box-{team}-{quarter}-{stat}"}, index_col=0
     )[0]
-    # Use BeautifulSoup to parse each player row and extract the player identifier
-    # players = soup.select(f'#box-{team}-{quarter}-{stat} tbody tr')
-    # player_ids = []
-
-    # for player in players:
-    #     player_id = player.find('th').get('data-append-csv')
-    #     player_ids.append(player_id)
-
-    # # Check if there's an extra row in df (like "Team Totals") and adjust player_ids accordingly
-    # if len(player_ids) < len(df):
-    #     player_ids.append("Team Totals")  # Add a placeholder for the last row
-
-    # # Add the player_ids as a new column in the DataFrame
-    # df['player_id'] = player_ids
-    # df = df.apply(pd.to_numeric, errors="coerce")
     return df
 
 
@@ -146,20 +131,20 @@ def get_team_records(soup):
     results = []
 
     for team_div in team_divs:
-        team_name = team_div.find_previous("strong").a.text  # Assuming the structure to find team name is correct
+        team_name = team_div.find_previous(
+            "strong"
+        ).a.text  # Assuming the structure to find team name is correct
 
         # Safely attempt to find the next sibling div and extract text
         record_div = team_div.find_next_sibling("div")
         if record_div:
             record_text = record_div.text.strip()
         else:
-            record_text = None # Or some other placeholder indicating an issue
+            record_text = None  # Or some other placeholder indicating an issue
 
         results.append((team_name, record_text))
 
     return results
-
-    
 
 
 async def get_html(browser, url, selector, sleep=5, retries=3):
@@ -205,17 +190,6 @@ async def get_html_requester(browser, url, selector, sleep=5, retries=3):
             await page.wait_for_selector(selector, timeout=6000)
             html = await page.inner_html(selector)
             break
-            # await page.goto(url, timeout=30000)  # 60s timeout
-            # await page.wait_for_selector(selector, timeout=60000)
-            # html = await page.inner_html(selector)
-            # response = requests.get(url)
-            # soup = BeautifulSoup(response.text, 'html.parser')
-            # Wait for the selector and get HTML of the selected element
-            # Note: BeautifulSoup does not support waiting, it processes what's in the response
-            # element = soup.select_one(selector)
-            # if element:
-            #     html = element.decode_contents()
-            # break
         except PlaywrightTimeout:
             print(f"Timeout error on {url} attempt {i}")
             continue
@@ -273,25 +247,20 @@ async def scrape_season(browser, season):
         return
     soup = BeautifulSoup(html, "html.parser")
     links = soup.find_all("a")
+
     # links for all months in the season
-    standings_pages = [
+    months = [
         f"https://www.basketball-reference.com{l['href']}"
         for l in links
         if "href" in l.attrs
     ]
-    # print("standing pages", standings_pages)
 
-    # Iterating over all months in a season 
-    for i, url in enumerate(tqdm(standings_pages, desc=f"Scraping {season}")):
-        if 1 <= i <= 3:
-            continue
-        # print("Focused on", url)
+    # Iterating over all months in a season
+    for i, url in enumerate(tqdm(months, desc=f"Scraping {season}")):
+
         first, second = os.path.basename(url).split("-")
-        save_path = os.path.join(STANDINGS_DIR, f"{first}_{i}-{second}")
-        # if os.path.exists(save_path):
-        #     continue
 
-        # for all games in the season per month
+        # extract all games in the season per month
         html_origin = await get_html(browser, url, "#all_schedule")
         if not html_origin:
             print(f"Failed to get HTML from {url}")
@@ -311,7 +280,7 @@ async def scrape_season(browser, season):
         season_date = season_date.split(".")[0]
         games = []
         # print(f"going to saved to data/{season}/{season_date}_all_games_summary.csv")
-        # Scraping games for one month 
+        # Scraping games for one month
         for url_box in tqdm(box_scores, desc=f"Scraping {season_date}"):
             # print("Focused on", url_box)
 

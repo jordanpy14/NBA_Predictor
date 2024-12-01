@@ -36,7 +36,6 @@ PLAYER_BASIC_STATS = [
     "BLK",
     "TOV",
     "PF",
-    "PTS",
     "plus_minus",
 ]
 TEAM_BASIC_STATS = [
@@ -53,7 +52,6 @@ TEAM_BASIC_STATS = [
     "BLK",
     "TOV",
     "PF",
-    "PTS",
 ]
 
 
