@@ -11,10 +11,20 @@ from tensorflow.keras.layers import Dense, Dropout, LSTM
 from tensorflow.keras.initializers import GlorotUniform  # Xavier initialization
 from tensorflow.keras.optimizers import Adam
 import matplotlib.pyplot as plt
+import keras_tuner as kt
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    classification_report,
+    confusion_matrix,
+)
 
 # HYPERPARAMETERS
 BATCH_SIZE = 16
-EPOCHS = 50
+EPOCHS = 20
 LR = 1e-3
 
 tf.keras.utils.set_random_seed(42)
@@ -76,13 +86,15 @@ def extract_features():
 
 
 def calculate_nba_analytics(df):
-    # Determine if home team won the half
-    halftime_win = (df["h1_team_home_PTS"] > df["h1_team_away_PTS"]).astype(int)
+    df["halftime_win"] = (df["h1_team_home_PTS"] > df["h1_team_away_PTS"]).astype(int)
 
     # Determine if the home team won the game
-    game_win = (df["game_team_home_PTS"] > df["game_team_away_PTS"]).astype(int)
+    df["final_win"] = (df["game_team_home_PTS"] > df["game_team_away_PTS"]).astype(int)
 
-    print(sum(1 for x, y in zip(halftime_win, game_win) if x == y) / len(game_win))
+    print(
+        sum(1 for x, y in zip(df["final_win"], df["halftime_win"]) if x == y)
+        / len(df["final_win"])
+    )
 
     # # Calculate the probability of winning the game given winning at halftime
     # # First, filter to only those games where the home team was leading at halftime
@@ -161,6 +173,77 @@ def plot_graphs(history):
     plt.show()
 
 
+def build_model(hp):
+    model = tf.keras.Sequential()
+
+    max_units = 128
+
+    num_lstm_layers = 2
+    for i in range(num_lstm_layers):
+        # Decreasing the number of units for each subsequent layer
+        units = hp.Int(f"units_{i + 1}", min_value=4, max_value=max_units, step=32)
+
+        # Add Dense layer
+        if i == 0:
+            # First layer needs to specify input_shape
+            model.add(
+                tf.keras.layers.LSTM(
+                    units=units,
+                    activation="relu",
+                    kernel_initializer=tf.keras.initializers.GlorotUniform(),
+                    input_shape=(timesteps, num_features),
+                    return_sequences=True,
+                )
+            )
+        else:
+            model.add(
+                tf.keras.layers.LSTM(
+                    units=units,
+                    activation="relu",
+                    kernel_initializer=tf.keras.initializers.GlorotUniform(),
+                )
+            )
+
+        # Tune dropout rate and add Dropout layer if dropout_rate > 0.0
+        dropout_rate = hp.Float(f"dropout_rate_{i + 1}", 0.0, 0.5, step=0.25)
+        if dropout_rate > 0.0:
+            model.add(tf.keras.layers.Dropout(rate=dropout_rate))
+
+    # Tune the number of layers between 1 and 3
+    for i in range(2, 3):
+        # Decreasing the number of units for each subsequent layer
+        units = hp.Int(f"units_{i + 1}", min_value=4, max_value=max_units, step=32)
+        model.add(
+            tf.keras.layers.Dense(
+                units=units,
+                activation="relu",
+                kernel_initializer=tf.keras.initializers.GlorotUniform(),
+            )
+        )
+
+        # Tune dropout rate and add Dropout layer if dropout_rate > 0.0
+        dropout_rate = hp.Float(f"dropout_rate_{i + 1}", 0.0, 0.5, step=0.25)
+        if dropout_rate > 0.0:
+            model.add(tf.keras.layers.Dropout(rate=dropout_rate))
+
+    # Output layer
+    model.add(
+        tf.keras.layers.Dense(
+            units=1,
+            activation="sigmoid",
+            kernel_initializer=tf.keras.initializers.GlorotUniform(),
+        )
+    )
+
+    # Tune the learning rate
+    # learning_rate = hp.Float("learning_rate", 1e-4, 1e-2, sampling="log")
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+
+    model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
+
+    return model
+
+
 # Custom RNN model
 class RNN(tf.keras.Model):
     def __init__(self, timesteps, features):
@@ -169,18 +252,15 @@ class RNN(tf.keras.Model):
             units=4,
             activation="relu",
             input_shape=(timesteps, features),
+            return_sequences=True,
+        )
+        self.lstm2 = LSTM(
+            units=100,
+            activation="relu",
             return_sequences=False,
         )
-        self.dense2 = Dense(
-            units=4,
-            activation="relu",
-        )
-        self.dense3 = Dense(
-            units=100,
-            activation="relu",
-        )
-        self.dense4 = Dense(
-            units=100,
+        self.dense1 = Dense(
+            units=36,
             activation="relu",
         )
         self.dropout = Dropout(0.25)
@@ -192,11 +272,9 @@ class RNN(tf.keras.Model):
     def call(self, inputs, training=False):
         x = self.lstm1(inputs)
         x = self.dropout(x, training=training)
-        x = self.dense2(x)
+        x = self.lstm2(x)
         x = self.dropout(x, training=training)
-        x = self.dense3(x)
-        x = self.dropout(x, training=training)
-        x = self.dense4(x)
+        x = self.dense1(x)
         x = self.output_layer(x)
         return x
 
@@ -222,29 +300,103 @@ def main():
         X_test[:, i, :] = scalers[i].transform(X_test[:, i, :])
 
     # Build the model
+    global timesteps, num_features
     timesteps, num_features = X_train.shape[1], X_train.shape[2]
-    model = RNN(timesteps, num_features)
-    early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor="val_loss", patience=30, restore_best_weights=True
-    )
-    # Compile the model
-    optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
-    model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
 
-    # Train the model
-    history = model.fit(
+    tuner = kt.RandomSearch(
+        build_model,
+        objective="val_accuracy",
+        max_trials=60,
+        executions_per_trial=1,
+        directory="hyperparameter_tuning",
+        project_name="mlp_tuning",
+    )
+
+    # Early stopping callback
+    early_stopping = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss", patience=20, restore_best_weights=True
+    )
+    tuner.search(
         X_train,
         y_train,
         validation_data=(X_val, y_val),
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
+        epochs=50,
+        batch_size=16,
         callbacks=[early_stopping],
+        verbose=1,
     )
-    # Evaluate the model
-    test_loss, test_accuracy = model.evaluate(X_test, y_test)
-    print(f"Test Loss: {test_loss}")
-    print(f"Test Accuracy: {test_accuracy}")
-    plot_graphs(history)
+
+    # Retrieve the best model and hyperparameters
+    best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
+
+    print(
+        f"""
+    The hyperparameter search is complete.
+    Optimal number of layers: {3}
+    Units per layer: {[best_hps.get(f'units_{i+1}') for i in range(3)]}
+    Dropout rates: {[best_hps.get(f'dropout_rate_{i+1}') for i in range(3)]}
+    """
+    )
+
+    # Build the best model
+    best_model = tuner.hypermodel.build(best_hps)
+
+    # Train the best model
+    history = best_model.fit(
+        X_train,
+        y_train,
+        validation_data=(X_val, y_val),
+        epochs=50,
+        batch_size=16,
+        callbacks=[early_stopping],
+        verbose=1,
+    )
+    y_pred_proba = best_model.predict(X_test)
+    # Convert probabilities to class labels
+    y_pred = (y_pred_proba > 0.5).astype(int).flatten()
+    # Compute metrics
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+    auc = roc_auc_score(y_test, y_pred_proba)
+
+    print("Model Performance:")
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"AUC: {auc:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+    # Classification report
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred))
+
+    # Evaluate the best model
+    # test_loss, test_accuracy = best_model.evaluate(X_test, y_test)
+    # print(f"Test Loss: {test_loss:.4f}")
+    # print(f"Test Accuracy: {test_accuracy:.4f}")
+    # plot_graphs(history)
+
+    # model = RNN(2, num_features)
+
+    # # Compile the model
+    # optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
+    # model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
+
+    # # Train the model
+    # history = model.fit(
+    #     X_train,
+    #     y_train,
+    #     validation_data=(X_val, y_val),
+    #     epochs=EPOCHS,
+    #     batch_size=BATCH_SIZE,
+    # )
+
+    # # Evaluate the model
+    # test_loss, test_accuracy = model.evaluate(X_test, y_test)
+    # print(f"Test Loss: {test_loss}")
+    # print(f"Test Accuracy: {test_accuracy}")
+
     # Optionally, save the model
     # model.save("RNN_model.keras")
 

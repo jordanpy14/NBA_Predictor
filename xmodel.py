@@ -1,3 +1,6 @@
+from xgboost import XGBClassifier
+from sklearn.metrics import auc, accuracy_score, confusion_matrix, mean_squared_error
+
 # Import necessary libraries
 import pandas as pd
 import numpy as np
@@ -24,14 +27,14 @@ from sklearn.metrics import (
 
 # HYPERPARAMETERS
 BATCH_SIZE = 16
-EPOCHS = 50
+EPOCHS = 20
 LR = 1e-3
 
 tf.keras.utils.set_random_seed(42)
 
 DATA_DIR = "data/"
-TIME = ["h1"]
-PLAYERS = ["team", "player1"]
+TIME = ["q1", "q2"]
+PLAYERS = ["team", "player1", "player2", "player3", "player4", "player5"]
 TEAMS = ["home", "away"]
 PLAYER_BASIC_STATS = [
     "MP_float",
@@ -77,7 +80,7 @@ def extract_features():
                 if player == "team":
                     for tbs in TEAM_BASIC_STATS:
                         features.append(f"{time}_{player}_{team}_{tbs}")
-                # player statistics
+                # Uncomment the following lines if you want to include player stats
                 # else:
                 #     for pbs in PLAYER_BASIC_STATS:
                 #         features.append(f"{time}_{player}_{team}_{pbs}")
@@ -137,10 +140,10 @@ def load_data():
 
 
 def plot_graphs(history):
-    plt.plot(history.history["auc"])
-    plt.plot(history.history["val_auc"])
-    plt.title("model auc")
-    plt.ylabel("auc")
+    plt.plot(history.history["accuracy"])
+    plt.plot(history.history["val_accuracy"])
+    plt.title("model accuracy")
+    plt.ylabel("accuracy")
     plt.xlabel("epoch")
     plt.legend(["train", "test"], loc="upper left")
     plt.show()
@@ -159,19 +162,19 @@ class MLP(tf.keras.Model):
     def __init__(self, num_features):
         super(MLP, self).__init__()
         self.dense1 = Dense(
-            units=4,
+            units=32,
             activation="relu",
             input_shape=(num_features,),
         )
         self.dense2 = Dense(
-            units=100,
+            units=16,
             activation="relu",
         )
         self.dense3 = Dense(
-            units=100,
+            units=16,
             activation="relu",
         )
-        self.dropout = Dropout(0.25)
+        self.dropout = Dropout(0.5)
         self.output_layer = Dense(
             units=1,
             activation="sigmoid",
@@ -183,11 +186,13 @@ class MLP(tf.keras.Model):
         x = self.dense2(x)
         x = self.dropout(x, training=training)
         x = self.dense3(x)
-        x = self.output_layer(x)
+        x = self.dropout(x, training=training)
+        x = self.output_layer(inputs)
         return x
 
 
 def main():
+
     # Load data
     X, y = load_data()
 
@@ -205,58 +210,29 @@ def main():
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
-    # Build the model
-    num_features = X_train.shape[1]
-    MLP_model = MLP(num_features)
-    MLP_model.summary()
-    # model = MLP(num_features)
-    model_path = (
-        "models/KT_3_Layer_best_model.keras"  # Replace with your actual model path
+    # Train the model
+    model = XGBClassifier(objective="binary:logistic", random_state=42)
+    model.fit(
+        X_train,
+        y_train,
+        eval_set=[(X_val, y_val)],
     )
-    model = tf.keras.models.load_model(model_path)
+    y_pred_xgb = model.predict(X_test)
+    y_pred_proba_xgb = model.predict_proba(X_test)[:, 1]
 
-    y_pred_proba = model.predict(X_test)
+    # Compute evaluation metrics
+    accuracy_xgb = accuracy_score(y_test, y_pred_xgb)
+    precision_xgb = precision_score(y_test, y_pred_xgb)
+    recall_xgb = recall_score(y_test, y_pred_xgb)
+    f1_xgb = f1_score(y_test, y_pred_xgb)
+    auc_xgb = roc_auc_score(y_test, y_pred_proba_xgb)
 
-    # Convert probabilities to class labels
-    y_pred = (y_pred_proba > 0.5).astype(int).flatten()
-    # Compute metrics
-    accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred)
-    recall = recall_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred)
-    auc = roc_auc_score(y_test, y_pred_proba)
-
-    print("Model Performance:")
-    print(f"Accuracy: {accuracy:.4f}")
-    print(f"AUC: {auc:.4f}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall: {recall:.4f}")
-    print(f"F1 Score: {f1:.4f}")
-
-    # # Compile the model
-    # optimizer = Adam(learning_rate=LR)
-    # model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["auc"])
-    # early_stopping = tf.keras.callbacks.EarlyStopping(
-    #     monitor="val_loss", patience=20, restore_best_weights=True
-    # )
-    # # Train the model
-    # history = model.fit(
-    #     X_train,
-    #     y_train,
-    #     validation_data=(X_val, y_val),
-    #     epochs=EPOCHS,
-    #     batch_size=BATCH_SIZE,
-    #     callbacks=[early_stopping],
-    # )
-
-    # # Evaluate the model
-    # test_loss, test_accuracy = model.evaluate(X_test, y_test)
-    # print(f"Test Loss: {test_loss}")
-    # print(f"Test Accuracy: {test_accuracy}")
-
-    # plot_graphs(history)
-    # Optionally, save the model
-    # model.save("MLP_model.keras")
+    print("\nXGBoost Classifier Performance:")
+    print(f"Accuracy: {accuracy_xgb:.4f}")
+    print(f"AUC: {auc_xgb:.4f}")
+    print(f"Precision: {precision_xgb:.4f}")
+    print(f"Recall: {recall_xgb:.4f}")
+    print(f"F1 Score: {f1_xgb:.4f}")
 
 
 if __name__ == "__main__":
